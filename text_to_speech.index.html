@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テキスト読み上げアプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            color: #1f2937; /* Tailwind gray-800 */
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem; /* Tailwind rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Tailwind shadow-lg */
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 1.875rem; /* Tailwind text-3xl */
+            font-weight: 700; /* Tailwind font-bold */
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db; /* Tailwind border-gray-300 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            margin-bottom: 1rem;
+            resize: vertical;
+            font-size: 1rem;
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500; /* Tailwind font-medium */
+            color: #4b5563; /* Tailwind gray-600 */
+        }
+        select, input[type="range"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db; /* Tailwind border-gray-300 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            background-color: white;
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            font-weight: 600; /* Tailwind font-semibold */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            color: white;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #speakButton { background-color: #2563eb; /* Tailwind bg-blue-600 */ }
+        #speakButton:hover:not(:disabled) { background-color: #1d4ed8; /* Tailwind hover:bg-blue-700 */ }
+        #pauseButton { background-color: #f59e0b; /* Tailwind bg-amber-500 */ }
+        #pauseButton:hover:not(:disabled) { background-color: #d97706; /* Tailwind hover:bg-amber-600 */ }
+        #resumeButton { background-color: #16a34a; /* Tailwind bg-green-600 */ }
+        #resumeButton:hover:not(:disabled) { background-color: #15803d; /* Tailwind hover:bg-green-700 */ }
+        #cancelButton { background-color: #dc2626; /* Tailwind bg-red-600 */ }
+        #cancelButton:hover:not(:disabled) { background-color: #b91c1c; /* Tailwind hover:bg-red-700 */ }
+
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            font-weight: 500;
+        }
+        .status-message.error {
+            background-color: #fee2e2; /* Tailwind red-100 */
+            color: #b91c1c; /* Tailwind red-700 */
+        }
+        .status-message.info {
+            background-color: #dbeafe; /* Tailwind blue-100 */
+            color: #1e40af; /* Tailwind blue-700 */
+        }
+        /* Removed .status-message.loading as it was specific to MP3 conversion */
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 1.5rem; /* Tailwind text-2xl */
+            }
+            .controls-grid {
+                grid-template-columns: 1fr; /* Stack controls on small screens */
+            }
+            .button-group button {
+                width: 100%; /* Full width buttons on small screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>テキスト読み上げ</h1>
+
+        <textarea id="textToSpeak" placeholder="ここに読み上げたいテキストを入力してください..."></textarea>
+
+        <div class="controls-grid">
+            <div class="control-group">
+                <label for="voiceSelect">声の種類:</label>
+                <select id="voiceSelect"></select>
+            </div>
+            <div class="control-group">
+                <label for="rate">速度: <span id="rateValue">1</span></label>
+                <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <label for="pitch">高さ: <span id="pitchValue">1</span></label>
+                <input type="range" id="pitch" min="0" max="2" step="0.1" value="1">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="speakButton">読み上げ</button>
+            <button id="pauseButton" disabled>一時停止</button>
+            <button id="resumeButton" disabled>再開</button>
+            <button id="cancelButton" disabled>キャンセル</button>
+        </div>
+        <div id="statusMessage" class="status-message" style="display: none;"></div>
+    </div>
+
+    <script>
+        const textToSpeak = document.getElementById('textToSpeak');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const rateInput = document.getElementById('rate');
+        const rateValueDisplay = document.getElementById('rateValue');
+        const pitchInput = document.getElementById('pitch');
+        const pitchValueDisplay = document.getElementById('pitchValue');
+        const speakButton = document.getElementById('speakButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const resumeButton = document.getElementById('resumeButton');
+        const cancelButton = document.getElementById('cancelButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let speechSynthesis = window.speechSynthesis;
+        let voices = [];
+        let currentUtterance = null;
+        let intentionallyCancelled = false;
+
+        function displayStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = 'block';
+        }
+
+        function hideStatus() {
+            statusMessage.style.display = 'none';
+        }
+
+        function populateVoiceList() {
+            voices = speechSynthesis.getVoices();
+            voiceSelect.innerHTML = '';
+            voices.forEach(voice => {
+                if (voice.lang.startsWith('ja') || voice.default) {
+                    const option = document.createElement('option');
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    if (voice.default && voice.lang.startsWith('ja')) {
+                        option.selected = true;
+                    }
+                    option.setAttribute('data-lang', voice.lang);
+                    option.setAttribute('data-name', voice.name);
+                    voiceSelect.appendChild(option);
+                }
+            });
+            if (voiceSelect.options.length > 0 && voiceSelect.selectedIndex === -1) {
+                voiceSelect.selectedIndex = 0;
+            } else if (voiceSelect.options.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = '利用可能な音声がありません';
+                option.disabled = true;
+                voiceSelect.appendChild(option);
+                speakButton.disabled = true;
+                displayStatus('利用可能な音声が見つかりませんでした。ブラウザが対応していないか、音声がインストールされていません。', 'error');
+            }
+        }
+        
+        // Check for Web Speech API support
+        if ('speechSynthesis' in window) {
+            populateVoiceList();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+        } else {
+            displayStatus('お使いのブラウザは音声合成に対応していません。', 'error');
+            [speakButton, rateInput, pitchInput, voiceSelect, pauseButton, resumeButton, cancelButton].forEach(el => el.disabled = true);
+        }
+
+        rateInput.addEventListener('input', () => { rateValueDisplay.textContent = rateInput.value; });
+        pitchInput.addEventListener('input', () => { pitchValueDisplay.textContent = pitchInput.value; });
+
+        function updateButtonStates(isSpeaking, isPaused) {
+            speakButton.disabled = isSpeaking;
+            pauseButton.disabled = !isSpeaking || isPaused;
+            resumeButton.disabled = !isSpeaking || !isPaused;
+            cancelButton.disabled = !isSpeaking;
+        }
+
+        function speakText(text, onEndCallback) {
+            if (speechSynthesis.speaking) {
+                console.log("speakText: Cancelling previous speech.");
+                intentionallyCancelled = true;
+                speechSynthesis.cancel(); 
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+            if (selectedVoiceName) {
+                utterance.voice = voices.find(voice => voice.name === selectedVoiceName);
+            }
+            utterance.rate = parseFloat(rateInput.value);
+            utterance.pitch = parseFloat(pitchInput.value);
+
+            utterance.onstart = () => {
+                console.log('Speech started:', utterance.text.substring(0,20));
+                currentUtterance = utterance;
+                intentionallyCancelled = false; 
+                updateButtonStates(true, false);
+                hideStatus();
+            };
+
+            utterance.onpause = () => {
+                console.log('Speech paused:', utterance.text.substring(0,20));
+                updateButtonStates(true, true);
+            };
+
+            utterance.onresume = () => {
+                console.log('Speech resumed:', utterance.text.substring(0,20));
+                updateButtonStates(true, false);
+            };
+
+            utterance.onend = () => {
+                console.log('Speech finished:', utterance.text.substring(0,20), intentionallyCancelled ? "(flag was true, likely after cancel)" : "");
+                intentionallyCancelled = false; 
+
+                if (currentUtterance === utterance) {
+                    currentUtterance = null;
+                }
+                updateButtonStates(false, false);
+                if (onEndCallback) onEndCallback(); 
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech error:', event.error, 'for utterance:', utterance.text.substring(0,20));
+                const wasIntentionalAndInterrupted = (event.error === 'interrupted' && intentionallyCancelled);
+                intentionallyCancelled = false; 
+
+                if (wasIntentionalAndInterrupted) {
+                    console.log("Error 'interrupted' was due to intentional cancellation. Treating as normal end for callback.");
+                    if (currentUtterance === utterance) {
+                        currentUtterance = null;
+                    }
+                    updateButtonStates(false, false);
+                    if (onEndCallback) onEndCallback(); 
+                    return; 
+                }
+
+                displayStatus(`読み上げエラー: ${event.error}`, 'error');
+                if (currentUtterance === utterance) {
+                    currentUtterance = null;
+                }
+                updateButtonStates(false, false);
+                if (onEndCallback) onEndCallback(event.error);
+            };
+            
+            if (speechSynthesis.speaking && intentionallyCancelled) {
+                setTimeout(() => {
+                    console.log("Speaking new utterance after delay:", utterance.text.substring(0,20));
+                    speechSynthesis.speak(utterance);
+                }, 150); // Short delay to allow cancel to process
+            } else {
+                 speechSynthesis.speak(utterance);
+            }
+        }
+
+        speakButton.addEventListener('click', () => {
+            const text = textToSpeak.value.trim();
+            if (text === '') {
+                displayStatus('読み上げるテキストを入力してください。', 'error');
+                return;
+            }
+            speakText(text);
+        });
+
+        pauseButton.addEventListener('click', () => { 
+            if (speechSynthesis.speaking && !speechSynthesis.paused) {
+                speechSynthesis.pause(); 
+            }
+        });
+        resumeButton.addEventListener('click', () => { 
+            if (speechSynthesis.paused) {
+                speechSynthesis.resume(); 
+            }
+        });
+        cancelButton.addEventListener('click', () => { 
+            if (speechSynthesis.speaking || speechSynthesis.paused) {
+                console.log("User clicked cancel button.");
+                intentionallyCancelled = true;
+                speechSynthesis.cancel(); 
+            }
+        });
+
+        // Initial button states
+        updateButtonStates(false, false);
+        textToSpeak.value = "こんにちは。これはテキスト読み上げアプリのデモンストレーションです。ここに好きな文章を入力して、読み上げボタンを押してください。";
+
+    </script>
+</body>
+</html>
